@@ -1,0 +1,15 @@
+services:
+    local_llm:
+        container_name: llm
+        volumes:
+            - /tmp/argus_socket:/tmp/argus_socket
+            - /etc/enctune.conf:/etc/enctune.conf
+            - /etc/nv_tegra_release:/etc/nv_tegra_release
+            - /tmp/nv_jetson_model:/tmp/nv_jetson_model
+            - /var/run/dbus:/var/run/dbus
+            - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
+            - /var/run/docker.sock:/var/run/docker.sock
+            - /ssd/jetson-containers/data:/data
+            - /ssd/http_chat:/opt/local_llm/local_llm/http_chat
+        image: dustynv/local_llm:r36.2.0
+        command: python3 -m local_llm.http_chat --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
