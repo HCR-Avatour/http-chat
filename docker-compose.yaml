@@ -2,7 +2,7 @@ services:
     local_llm:
         container_name: llm
         ports:
-            - 8888:80
+            - 9542:80
         volumes:
             - /tmp/argus_socket:/tmp/argus_socket
             - /etc/enctune.conf:/etc/enctune.conf

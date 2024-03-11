@@ -42,56 +42,13 @@ def query():
     prompt = request.args.get('prompt')
     if prompt is None:
         return "No prompt specified"
-    return prompt
 
+    entry = chat_history.append(role='user', msg=prompt)
 
-@app.route("/reset")
-def reset():
-    chat_history.reset()
-    return "OK"
-
-app.run(host=args.host, port=args.port, debug=True)
-while True:
-    # get the next prompt from the list, or from the user interactivey
-    if isinstance(prompts, list):
-        if len(prompts) > 0:
-            user_prompt = prompts.pop(0)
-            cprint(f'>> PROMPT: {user_prompt}', args.prompt_color)
-        else:
-            break
-    else:
-        cprint('>> PROMPT: ', args.prompt_color, end='', flush=True)
-        user_prompt = sys.stdin.readline().strip()
-
-    print('')
-
-    # special commands:  load prompts from file
-    # 'reset' or 'clear' resets the chat history
-    if user_prompt.lower().endswith(('.txt', '.json')):
-        user_prompt = ' '.join(load_prompts(user_prompt))
-    elif user_prompt.lower() == 'reset' or user_prompt.lower() == 'clear':
-        logging.info("resetting chat history")
-        chat_history.reset()
-        continue
-
-    # add the latest user prompt to the chat history
-    entry = chat_history.append(role='user', msg=user_prompt)
-
-    # images should be followed by text prompts
-    if 'image' in entry and 'text' not in entry:
-        logging.debug("image message, waiting for user prompt")
-        continue
-
-    # get the latest embeddings (or tokens) from the chat
     embedding, position = chat_history.embed_chat(return_tokens=not model.has_embed)
-
-    if logging.getLogger().isEnabledFor(logging.DEBUG):
-        logging.debug(f"adding embedding shape={embedding.shape} position={position}")
-
-    # generate bot reply
     reply = model.generate(
         embedding,
-        streaming=not args.disable_streaming,
+        streaming=True,
         kv_cache=chat_history.kv_cache,
         stop_tokens=chat_history.template.stop,
         max_new_tokens=args.max_new_tokens,
@@ -102,25 +59,23 @@ while True:
         top_p=args.top_p,
     )
 
+    print(reply)
+
     bot_reply = chat_history.append(role='bot', text='') # placeholder
 
-    if args.disable_streaming:
-        bot_reply.text = reply
-        cprint(reply, args.reply_color)
-    else:
-        for token in reply:
-            bot_reply.text += token
-            cprint(token, args.reply_color, end='', flush=True)
-            if interrupt:
-                reply.stop()
-                interrupt.reset()
-                break
-
-    print('\n')
-
-    if not args.disable_stats:
-        print_table(model.stats)
-        print('')
+    for token in reply:
+        bot_reply.text += token
 
     chat_history.kv_cache = reply.kv_cache   # save the kv_cache
     bot_reply.text = reply.output_text  # sync the text once more
+
+    print_table(model.stats)
+    return bot_reply.text
+
+
+@app.route("/reset")
+def reset():
+    chat_history.reset()
+    return "OK"
+
+app.run(host=args.host, port=args.port, debug=True)
