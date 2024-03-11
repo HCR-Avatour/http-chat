@@ -6,7 +6,7 @@ import signal
 import logging
 import numpy as np
 
-from termcolor import cprint
+from flask import Flask, request
 
 from local_llm import LocalLM, ChatHistory, ChatTemplates
 from local_llm.utils import ImageExtensions, ArgParser, KeyboardInterrupt, load_prompts, print_table
@@ -35,6 +35,22 @@ model = LocalLM.from_pretrained(
 # create the chat history
 chat_history = ChatHistory(model, args.chat_template, args.system_prompt)
 
+app = Flask(__name__)
+
+@app.route("/")
+def query():
+    prompt = request.args.get('prompt')
+    if prompt is None:
+        return "No prompt specified"
+    return prompt
+
+
+@app.route("/reset")
+def reset():
+    chat_history.reset()
+    return "OK"
+
+app.run(host=args.host, port=args.port, debug=True)
 while True:
     # get the next prompt from the list, or from the user interactivey
     if isinstance(prompts, list):
