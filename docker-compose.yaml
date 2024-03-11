@@ -10,6 +10,6 @@ services:
             - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
             - /var/run/docker.sock:/var/run/docker.sock
             - /ssd/jetson-containers/data:/data
-            - /ssd/http_chat:/opt/local_llm/local_llm/http_chat
+            - ./http_chat.py:/opt/local_llm/local_llm/agents/http_chat.py
         image: dustynv/local_llm:r36.2.0
-        command: python3 -m local_llm.http_chat --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
+        command: python3 -m local_llm.agents.http_chat --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
