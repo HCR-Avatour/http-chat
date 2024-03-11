@@ -1,54 +1,110 @@
 #!/usr/bin/env python3
 import os
+import sys
+import time
+import signal
 import logging
-import threading
 import numpy as np
 
-from flask import Flask
+from termcolor import cprint
 
-from local_llm import Agent
-from local_llm.web import WebServer
-from local_llm.utils import ArgParser, print_table
-from local_llm.plugins import ChatQuery, UserPrompt
+from local_llm import LocalLM, ChatHistory, ChatTemplates
+from local_llm.utils import ImageExtensions, ArgParser, KeyboardInterrupt, load_prompts, print_table
 
-class HttpChat(Agent):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+# see utils/args.py for options
+parser = ArgParser()
 
-        self.llm = ChatQuery(**kwargs)
-        self.llm.add(self.on_llm_reply)
+parser.add_argument("--host", type=str, default='0.0.0.0', help="host to bind to")
+parser.add_argument("--port", type=int, default=80, help="port to bind to")
 
-        self.prompt = UserPrompt(interactive=True, **kwargs)
-        self.prompt.add(self.llm)
+args = parser.parse_args()
 
-        self.pipeline = [self.prompt]
+prompts = load_prompts(args.prompt)
+interrupt = KeyboardInterrupt()
 
-        self.app = Flask(__name__)
-        self.web_thread = threading.Thread(target=lambda: self.app.run(host="0.0.0.0", port=8050, debug=True, use_reloader=False), daemon=True)
+# load model
+model = LocalLM.from_pretrained(
+    args.model,
+    quant=args.quant,
+    api=args.api,
+    max_context_len=args.max_context_len,
+    vision_model=args.vision_model,
+    vision_scaling=args.vision_scaling,
+)
 
-        self.response = ""
+# create the chat history
+chat_history = ChatHistory(model, args.chat_template, args.system_prompt)
 
-    def on_message(self, msg, msg_type=0, metadata='', **kwargs):
-        if msg_type == WebServer.MESSAGE_JSON:
-            if 'chat_history_reset' in msg:
-                self.llm.chat_history.reset()
-        elif msg_type == WebServer.MESSAGE_TEXT:  # chat input
-            self.prompt(msg.strip('"'))
+while True:
+    # get the next prompt from the list, or from the user interactivey
+    if isinstance(prompts, list):
+        if len(prompts) > 0:
+            user_prompt = prompts.pop(0)
+            cprint(f'>> PROMPT: {user_prompt}', args.prompt_color)
+        else:
+            break
+    else:
+        cprint('>> PROMPT: ', args.prompt_color, end='', flush=True)
+        user_prompt = sys.stdin.readline().strip()
 
-    def on_llm_reply(self, text):
-        self.response += text
-        if text.endswith('</s>'):
-            print_table(self.llm.model.stats)
-            print("LLM SAYS: " + self.response)
-            self.response = ""
+    print('')
 
-    def start(self):
-        super().start()
-        self.web_thread.start()
-        return self
+    # special commands:  load prompts from file
+    # 'reset' or 'clear' resets the chat history
+    if user_prompt.lower().endswith(('.txt', '.json')):
+        user_prompt = ' '.join(load_prompts(user_prompt))
+    elif user_prompt.lower() == 'reset' or user_prompt.lower() == 'clear':
+        logging.info("resetting chat history")
+        chat_history.reset()
+        continue
 
-if __name__ == "__main__":
-    parser = ArgParser(extras=ArgParser.Defaults+['web'])
-    args = parser.parse_args()
-    agent = HttpChat(**vars(args)).run()
+    # add the latest user prompt to the chat history
+    entry = chat_history.append(role='user', msg=user_prompt)
 
+    # images should be followed by text prompts
+    if 'image' in entry and 'text' not in entry:
+        logging.debug("image message, waiting for user prompt")
+        continue
+
+    # get the latest embeddings (or tokens) from the chat
+    embedding, position = chat_history.embed_chat(return_tokens=not model.has_embed)
+
+    if logging.getLogger().isEnabledFor(logging.DEBUG):
+        logging.debug(f"adding embedding shape={embedding.shape} position={position}")
+
+    # generate bot reply
+    reply = model.generate(
+        embedding,
+        streaming=not args.disable_streaming,
+        kv_cache=chat_history.kv_cache,
+        stop_tokens=chat_history.template.stop,
+        max_new_tokens=args.max_new_tokens,
+        min_new_tokens=args.min_new_tokens,
+        do_sample=args.do_sample,
+        repetition_penalty=args.repetition_penalty,
+        temperature=args.temperature,
+        top_p=args.top_p,
+    )
+
+    bot_reply = chat_history.append(role='bot', text='') # placeholder
+
+    if args.disable_streaming:
+        bot_reply.text = reply
+        cprint(reply, args.reply_color)
+    else:
+        for token in reply:
+            bot_reply.text += token
+            cprint(token, args.reply_color, end='', flush=True)
+            if interrupt:
+                reply.stop()
+                interrupt.reset()
+                break
+
+    print('\n')
+
+    if not args.disable_stats:
+        print_table(model.stats)
+        print('')
+
+    chat_history.kv_cache = reply.kv_cache   # save the kv_cache
+    bot_reply.text = reply.output_text  # sync the text once more

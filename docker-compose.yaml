@@ -2,7 +2,7 @@ services:
     local_llm:
         container_name: llm
         ports:
-            - 8050:8050
+            - 8888:80
         volumes:
             - /tmp/argus_socket:/tmp/argus_socket
             - /etc/enctune.conf:/etc/enctune.conf
@@ -12,7 +12,6 @@ services:
             - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
             - /var/run/docker.sock:/var/run/docker.sock
             - /ssd/jetson-containers/data:/data
-            - ./http_chat.py:/opt/local_llm/local_llm/agents/http_chat.py
+            - ./http_chat.py:/opt/local_llm/local_llm/http_chat/__main__.py
         image: dustynv/local_llm:r36.2.0
-        command: python3 -m local_llm.agents.http_chat --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
-#        command: sleep 10000000
+        command: python3 -m local_llm.http_chat --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
