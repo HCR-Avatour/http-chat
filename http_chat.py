@@ -43,7 +43,8 @@ def query():
     prompt = request.args.get('prompt')
     if prompt is None:
         return "No prompt specified"
-
+    if prompt.replace(" ", "").lower() == "you":
+        return "Please repeat."
 
     entry = chat_history.append(role='user', msg=prompt)
 
@@ -53,7 +54,7 @@ def query():
         streaming=True,
         kv_cache=chat_history.kv_cache,
         stop_tokens=chat_history.template.stop,
-        max_new_tokens=50,
+        max_new_tokens=30,
         min_new_tokens=args.min_new_tokens,
         do_sample=args.do_sample,
         repetition_penalty=args.repetition_penalty,
