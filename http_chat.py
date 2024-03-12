@@ -6,6 +6,8 @@ import signal
 import logging
 import numpy as np
 
+from threading import Lock
+
 from flask import Flask, request
 
 from local_llm import LocalLM, ChatHistory, ChatTemplates
@@ -38,6 +40,8 @@ chat_history = ChatHistory(model, args.chat_template, args.system_prompt)
 
 app = Flask(__name__)
 
+mutex = Lock()
+
 @app.route("/")
 def query():
     prompt = request.args.get('prompt')
@@ -46,39 +50,38 @@ def query():
     if prompt.replace(" ", "").lower() == "you":
         return "Please repeat."
 
-    entry = chat_history.append(role='user', msg=prompt)
+    with mutex:
+        entry = chat_history.append(role='user', msg=prompt)
+        embedding, position = chat_history.embed_chat(return_tokens=not model.has_embed)
+        reply = model.generate(
+            embedding,
+            streaming=True,
+            kv_cache=chat_history.kv_cache,
+            stop_tokens=chat_history.template.stop,
+            max_new_tokens=30,
+            min_new_tokens=args.min_new_tokens,
+            do_sample=args.do_sample,
+            repetition_penalty=args.repetition_penalty,
+            temperature=args.temperature,
+            top_p=args.top_p,
+        )
 
-    embedding, position = chat_history.embed_chat(return_tokens=not model.has_embed)
-    reply = model.generate(
-        embedding,
-        streaming=True,
-        kv_cache=chat_history.kv_cache,
-        stop_tokens=chat_history.template.stop,
-        max_new_tokens=30,
-        min_new_tokens=args.min_new_tokens,
-        do_sample=args.do_sample,
-        repetition_penalty=args.repetition_penalty,
-        temperature=args.temperature,
-        top_p=args.top_p,
-    )
+        bot_reply = chat_history.append(role='bot', text='') # placeholder
 
-    print(reply)
+        for token in reply:
+            bot_reply.text += token
 
-    bot_reply = chat_history.append(role='bot', text='') # placeholder
+        chat_history.kv_cache = reply.kv_cache   # save the kv_cache
+        bot_reply.text = reply.output_text  # sync the text once more
 
-    for token in reply:
-        bot_reply.text += token
-
-    chat_history.kv_cache = reply.kv_cache   # save the kv_cache
-    bot_reply.text = reply.output_text  # sync the text once more
-
-    print_table(model.stats)
-    return bot_reply.text
+        print_table(model.stats)
+        return bot_reply.text
 
 
 @app.route("/reset")
 def reset():
-    chat_history.reset()
-    return "OK"
+    with mutex:
+        chat_history.reset()
+        return "OK"
 
 app.run(host=args.host, port=args.port, debug=args.dev)
