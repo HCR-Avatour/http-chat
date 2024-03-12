@@ -65,17 +65,14 @@ def query():
             temperature=args.temperature,
             top_p=args.top_p,
         )
-
         bot_reply = chat_history.append(role='bot', text='') # placeholder
-
         for token in reply:
-            bot_reply.text += token
+            continue
 
-        chat_history.kv_cache = reply.kv_cache   # save the kv_cache
-        bot_reply.text = reply.output_text  # sync the text once more
+        chat_history.kv_cache = reply.kv_cache
+        bot_reply.text = reply.output_text
 
-        print_table(model.stats)
-        return bot_reply.text
+        return reply.output_text.removesuffix("</s>")
 
 
 @app.route("/reset")
