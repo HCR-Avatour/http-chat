@@ -16,3 +16,9 @@ services:
             - ./http_chat.py:/opt/local_llm/local_llm/http_chat/__main__.py
             - ./system-prompt.txt:/system-prompt.txt
         command: python3 -m local_llm.http_chat --dev=true --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
+# princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT - this one is okayish
+# mistralai/Mistral-7B-Instruct-v0.2 - refuses to run
+# stabilityai/stablelm-2-zephyr-1_6b - this one is broken af
+# TinyLlama/TinyLlama-1.1B-Chat-v1.0 - this one is quite stupid
+# AbacusResearch/RasGulla1-7 - ?
+# microsoft/phi-1_5 - ?
