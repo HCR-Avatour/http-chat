@@ -16,6 +16,7 @@ parser = ArgParser()
 
 parser.add_argument("--host", type=str, default='0.0.0.0', help="host to bind to")
 parser.add_argument("--port", type=int, default=80, help="port to bind to")
+parser.add_argument("--dev", type=bool, default=False, help="flask development mode")
 
 args = parser.parse_args()
 
@@ -43,6 +44,7 @@ def query():
     if prompt is None:
         return "No prompt specified"
 
+
     entry = chat_history.append(role='user', msg=prompt)
 
     embedding, position = chat_history.embed_chat(return_tokens=not model.has_embed)
@@ -51,7 +53,7 @@ def query():
         streaming=True,
         kv_cache=chat_history.kv_cache,
         stop_tokens=chat_history.template.stop,
-        max_new_tokens=args.max_new_tokens,
+        max_new_tokens=50,
         min_new_tokens=args.min_new_tokens,
         do_sample=args.do_sample,
         repetition_penalty=args.repetition_penalty,
@@ -78,4 +80,4 @@ def reset():
     chat_history.reset()
     return "OK"
 
-app.run(host=args.host, port=args.port, debug=True)
+app.run(host=args.host, port=args.port, debug=args.dev)

@@ -1,10 +1,10 @@
-name: llm
+name: llm-dev
 services:
-    local_llm:
-        container_name: llm
+    local_llm_dev:
+        container_name: llm-dev
         build: .
         ports:
-            - 9542:80
+            - 8888:80
         volumes:
             - /tmp/argus_socket:/tmp/argus_socket
             - /etc/enctune.conf:/etc/enctune.conf
@@ -13,4 +13,5 @@ services:
             - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
             - /var/run/docker.sock:/var/run/docker.sock
             - /ssd/jetson-containers/data:/data
-        command: python3 -m local_llm.http_chat --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
+            - ./http_chat.py:/opt/local_llm/local_llm/http_chat/__main__.py
+        command: python3 -m local_llm.http_chat --dev=true --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
