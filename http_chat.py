@@ -59,7 +59,7 @@ def query():
             streaming=True,
             kv_cache=chat_history.kv_cache,
             stop_tokens=chat_history.template.stop,
-            max_new_tokens=30,
+            max_new_tokens=args.max_new_tokens,
             min_new_tokens=args.min_new_tokens,
             do_sample=args.do_sample,
             repetition_penalty=args.repetition_penalty,
