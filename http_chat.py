@@ -36,7 +36,8 @@ model = LocalLM.from_pretrained(
 )
 
 # create the chat history
-chat_history = ChatHistory(model, args.chat_template, args.system_prompt)
+system_prompt = open("/system-prompt.txt", "r")
+chat_history = ChatHistory(model, args.chat_template, system_prompt.read())
 
 app = Flask(__name__)
 

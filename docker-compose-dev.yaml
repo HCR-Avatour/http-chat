@@ -14,4 +14,5 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock
             - /ssd/jetson-containers/data:/data
             - ./http_chat.py:/opt/local_llm/local_llm/http_chat/__main__.py
+            - ./system-prompt.txt:/system-prompt.txt
         command: python3 -m local_llm.http_chat --dev=true --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT
