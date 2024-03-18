@@ -37,6 +37,7 @@ model = LocalLM.from_pretrained(
 )
 
 # create the chat history
+# need to build the docker container to update the system-prompt.txt file
 system_prompt = open("/system-prompt.txt", "r")
 chat_history = ChatHistory(model, args.chat_template, system_prompt.read())
 
@@ -46,7 +47,7 @@ mutex = Lock()
 
 def deEmojify(text):
     if "\"" in text:
-        text.replace("\"", "")
+        text = text.replace("\"", "")
         
     regrex_pattern = re.compile(pattern = "["
         u"\U0001F600-\U0001F64F"  # emoticons
@@ -56,6 +57,15 @@ def deEmojify(text):
                            "]+", flags = re.UNICODE)
     return regrex_pattern.sub(r'',text)
 
+def remove_unfinished_sentence(text):
+    # Define the pattern to match sentences with punctuation
+    pattern = r'[^.!?]+[.!?]+'
+    # Use re.findall to find all occurrences of the pattern in the text
+    sentences = re.findall(pattern, text)
+    # Strip leading and trailing whitespace from each sentence
+    sentences = [sentence.strip() for sentence in sentences]
+    return ' '.join(sentences)
+
 @app.route("/")
 def query():
     prompt = request.args.get('prompt')
@@ -64,7 +74,7 @@ def query():
     if prompt.replace(" ", "").lower() == "you":
         return "Please repeat."
     if "\"" in prompt:
-        prompt.replace("\"", "")
+        prompt = prompt.replace("\"", "")
 
     with mutex:
         # chat_history.reset()
@@ -83,20 +93,20 @@ def query():
             temperature=args.temperature,
             top_p=args.top_p,
         )
-        reply.output_text = deEmojify(reply.output_text)
+        
         bot_reply = chat_history.append(role='bot', text='') # placeholder
         for token in reply:
             continue
 
         chat_history.kv_cache = reply.kv_cache
-        bot_reply.text = reply.output_text
+        bot_reply.text = remove_unfinished_sentence(deEmojify(reply.output_text.removesuffix("</s>"))) # reply.output_text
         
         # situation when LLM output format is broken, recall answer after reseting chat history
-        if "#" in reply.output_text or ("User:" or "AI:" or "Bot:") in reply.output_text :
+        if "#" in remove_unfinished_sentence(deEmojify(reply.output_text.removesuffix("</s>"))) or ("User:" or "AI:" or "Bot:") in remove_unfinished_sentence(deEmojify(reply.output_text.removesuffix("</s>"))) :
             chat_history.reset()
             query()
 
-        return reply.output_text.removesuffix("</s>")
+        return remove_unfinished_sentence(deEmojify(reply.output_text.removesuffix("</s>")))
 
 
 @app.route("/reset")

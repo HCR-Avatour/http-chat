@@ -15,7 +15,7 @@ services:
             - /ssd/jetson-containers/data:/data
         # command: python3 -m local_llm.http_chat --api=mlc --model princeton-nlp/Sheared-LLaMA-2.7B-ShareGPT #--max-new-tokens=100
         # command: python3 -m local_llm.http_chat --api=mlc --model=meta-llama/Llama-2-7b-chat-hf --chat-template=llama-2 --repetition-penalty=1.5 --temperature=1.0 --max-new-tokens=50
-        command: python3 -m local_llm.http_chat --api=mlc --model=meta-llama/Llama-2-13b-chat-hf --chat-template=llama-2 --repetition-penalty=1.5 --temperature=1.0 --max-new-tokens=50
+        command: python3 -m local_llm.http_chat --api=mlc --model=meta-llama/Llama-2-13b-chat-hf --chat-template=llama-2 --repetition-penalty=1.0 --temperature=1.0 --max-new-tokens=50
         # command: python3 -m local_llm.agents.video_query --api=mlc \
         #   --model Efficient-Large-Model/VILA-2.7b \
         #   --max-context-len 768 \
