@@ -48,7 +48,7 @@ mutex = Lock()
 def deEmojify(text):
     if "\"" in text:
         text = text.replace("\"", "")
-        
+
     regrex_pattern = re.compile(pattern = "["
         u"\U0001F600-\U0001F64F"  # emoticons
         u"\U0001F300-\U0001F5FF"  # symbols & pictographs
@@ -93,14 +93,14 @@ def query():
             temperature=args.temperature,
             top_p=args.top_p,
         )
-        
+
         bot_reply = chat_history.append(role='bot', text='') # placeholder
         for token in reply:
             continue
 
         chat_history.kv_cache = reply.kv_cache
         bot_reply.text = remove_unfinished_sentence(deEmojify(reply.output_text.removesuffix("</s>"))) # reply.output_text
-        
+
         # situation when LLM output format is broken, recall answer after reseting chat history
         if "#" in remove_unfinished_sentence(deEmojify(reply.output_text.removesuffix("</s>"))) or ("User:" or "AI:" or "Bot:") in remove_unfinished_sentence(deEmojify(reply.output_text.removesuffix("</s>"))) :
             chat_history.reset()

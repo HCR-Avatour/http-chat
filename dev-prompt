@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-curl -4 --get --data-urlencode "prompt=$1" http://localhost:8888
